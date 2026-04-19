@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, User, Mail, Lock, Dumbbell } from 'lucide-react';
+import { User, Mail, Lock, Dumbbell } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -32,10 +31,7 @@ const Login = () => {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    defaultValues: { email: '', password: '' },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -77,11 +73,7 @@ const Login = () => {
                       Email
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="your.email@example.com" 
-                        className="border-purple-100 focus:border-proglo-purple focus:ring-proglo-purple/20 h-11"
-                        {...field} 
-                      />
+                      <Input placeholder="your.email@example.com" className="border-purple-100 focus:border-proglo-purple focus:ring-proglo-purple/20 h-11" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -97,22 +89,13 @@ const Login = () => {
                       Password
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="••••••••" 
-                        className="border-purple-100 focus:border-proglo-purple focus:ring-proglo-purple/20 h-11"
-                        {...field} 
-                      />
+                      <Input type="password" placeholder="••••••••" className="border-purple-100 focus:border-proglo-purple focus:ring-proglo-purple/20 h-11" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-to-r from-proglo-purple to-purple-600 hover:from-proglo-dark-purple hover:to-purple-700 h-11 font-medium" 
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full bg-gradient-to-r from-proglo-purple to-purple-600 hover:from-proglo-dark-purple hover:to-purple-700 h-11 font-medium" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Log in'}
               </Button>
             </form>

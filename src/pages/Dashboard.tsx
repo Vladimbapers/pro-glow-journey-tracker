@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardGreeting from '@/components/dashboard/DashboardGreeting';
@@ -7,80 +6,56 @@ import WeightTracker from '@/components/dashboard/WeightTracker';
 import BMISummary from '@/components/dashboard/BMISummary';
 import RecentActivities from '@/components/dashboard/RecentActivities';
 import NutritionSummary from '@/components/dashboard/NutritionSummary';
-import { localDB } from '@/services/localDatabase';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [bmiData, setBmiData] = useState([]);
-  const [weightData, setWeightData] = useState([]);
+  const [latestBmi, setLatestBmi] = useState<{ bmi_value: number; category: string } | null>(null);
+  const [weightData, setWeightData] = useState<{ date: string; value: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     const fetchData = async () => {
-      if (user) {
-        try {
-          // Fetch BMI data
-          const bmiHistory = await localDB.getBMIRecords(user.id);
-          setBmiData(bmiHistory);
-          
-          // Transform BMI data for weight tracking
-          if (bmiHistory && bmiHistory.length > 0) {
-            const transformedData = bmiHistory.map(item => ({
-              date: item.date,
-              value: item.weight
-            }));
-            setWeightData(transformedData);
-          } else {
-            // Use mock data if no real data is available
-            setWeightData([
-              { date: '2025-04-05', value: 72.5 },
-              { date: '2025-04-06', value: 72.3 },
-              { date: '2025-04-07', value: 72.1 },
-              { date: '2025-04-08', value: 71.8 },
-              { date: '2025-04-09', value: 71.6 },
-              { date: '2025-04-10', value: 71.4 },
-              { date: '2025-04-11', value: 71.2 },
-            ]);
-          }
-        } catch (error) {
-          console.error("Error fetching dashboard data:", error);
-        } finally {
-          setIsLoading(false);
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('bmi_entries')
+          .select('bmi, weight, category, recorded_at')
+          .eq('user_id', user.id)
+          .order('recorded_at', { ascending: false });
+
+        if (data && data.length > 0) {
+          setLatestBmi({ bmi_value: Number(data[0].bmi), category: data[0].category ?? 'Healthy Weight' });
+          setWeightData(
+            [...data].reverse().map((d: any) => ({ date: d.recorded_at, value: Number(d.weight) }))
+          );
+        } else {
+          setWeightData([]);
         }
+      } catch (e) {
+        console.error('Dashboard load error', e);
+      } finally {
+        setIsLoading(false);
       }
     };
-    
     fetchData();
   }, [user]);
-  
+
   return (
     <div className="space-y-8">
-      {/* Greeting Section */}
       <DashboardGreeting name={user?.name || 'User'} />
-      
-      {/* Stats Overview */}
       <StatsOverview />
-      
-      {/* Weight Tracking and BMI */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 stagger-animate-2">
           <WeightTracker data={weightData} />
         </div>
-        
         <div className="lg:col-span-1 stagger-animate-2" style={{ animationDelay: "0.2s" }}>
-          <BMISummary bmiData={bmiData.length > 0 ? bmiData[0] : null} isLoading={isLoading} />
+          <BMISummary bmiData={latestBmi} isLoading={isLoading} />
         </div>
       </div>
-      
-      {/* Recent Activities and Nutrition */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="stagger-animate-3">
-          <RecentActivities />
-        </div>
-        
-        <div className="stagger-animate-3" style={{ animationDelay: "0.2s" }}>
-          <NutritionSummary />
-        </div>
+        <div className="stagger-animate-3"><RecentActivities /></div>
+        <div className="stagger-animate-3" style={{ animationDelay: "0.2s" }}><NutritionSummary /></div>
       </div>
     </div>
   );

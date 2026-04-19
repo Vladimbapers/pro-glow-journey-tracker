@@ -14,16 +14,282 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          calories_burned: number | null
+          created_at: string
+          duration_minutes: number
+          id: string
+          notes: string | null
+          recorded_at: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          calories_burned?: number | null
+          created_at?: string
+          duration_minutes: number
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          calories_burned?: number | null
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bmi_entries: {
+        Row: {
+          bmi: number
+          category: string | null
+          created_at: string
+          height: number
+          id: string
+          recorded_at: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          bmi: number
+          category?: string | null
+          created_at?: string
+          height: number
+          id?: string
+          recorded_at?: string
+          user_id: string
+          weight: number
+        }
+        Update: {
+          bmi?: number
+          category?: string | null
+          created_at?: string
+          height?: number
+          id?: string
+          recorded_at?: string
+          user_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          category: string
+          completed: boolean
+          created_at: string
+          deadline: string | null
+          id: string
+          progress: number
+          target: number | null
+          title: string
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          completed?: boolean
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          progress?: number
+          target?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          completed?: boolean
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          progress?: number
+          target?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hydration_entries: {
+        Row: {
+          amount_ml: number
+          created_at: string
+          id: string
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_ml: number
+          created_at?: string
+          id?: string
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_ml?: number
+          created_at?: string
+          id?: string
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_entries: {
+        Row: {
+          calories: number | null
+          carbs: number | null
+          created_at: string
+          fat: number | null
+          food_name: string
+          id: string
+          meal: string
+          protein: number | null
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string
+          fat?: number | null
+          food_name: string
+          id?: string
+          meal: string
+          protein?: number | null
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string
+          fat?: number | null
+          food_name?: string
+          id?: string
+          meal?: string
+          protein?: number | null
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          avatar: string | null
+          created_at: string
+          email: string
+          gender: string | null
+          height: number | null
+          id: string
+          name: string
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          age?: number | null
+          avatar?: string | null
+          created_at?: string
+          email: string
+          gender?: string | null
+          height?: number | null
+          id: string
+          name: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          age?: number | null
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          gender?: string | null
+          height?: number | null
+          id?: string
+          name?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      sleep_entries: {
+        Row: {
+          created_at: string
+          hours: number
+          id: string
+          notes: string | null
+          quality: string | null
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hours: number
+          id?: string
+          notes?: string | null
+          quality?: string | null
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hours?: number
+          id?: string
+          notes?: string | null
+          quality?: string | null
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +416,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

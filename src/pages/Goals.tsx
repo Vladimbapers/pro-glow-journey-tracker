@@ -1,111 +1,79 @@
-import React, { useState } from 'react';
-import { Dumbbell, Target, Award, Plus, Edit2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Dumbbell, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
-import { v4 as uuidv4 } from '@/lib/utils';
 import GoalSetting from '@/components/goals/GoalSetting';
 import { Goal, GoalFormData } from '@/components/goals/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-// Sample goals data
-const sampleGoals: Goal[] = [
-  {
-    id: '1',
-    title: 'Increase Daily Steps',
-    description: 'Walk more steps every day to improve cardiovascular health',
-    category: 'fitness',
-    startValue: 3000,
-    currentValue: 7500,
-    targetValue: 10000,
-    unit: 'steps',
-    deadline: '2025-06-30',
-    createdAt: '2025-04-01',
-  },
-  {
-    id: '2',
-    title: 'Reduce Body Weight',
-    description: 'Lose weight to reach ideal BMI',
-    category: 'weight',
-    startValue: 85,
-    currentValue: 80,
-    targetValue: 75,
-    unit: 'kg',
-    deadline: '2025-07-15',
-    createdAt: '2025-04-01',
-  },
-  {
-    id: '3',
-    title: 'Improve Sleep Quality',
-    description: 'Get more restful sleep each night',
-    category: 'sleep',
-    startValue: 5.5,
-    currentValue: 6.5,
-    targetValue: 8,
-    unit: 'hours',
-    deadline: '2025-05-30',
-    createdAt: '2025-04-01',
-  },
-  {
-    id: '4',
-    title: 'Increase Water Intake',
-    description: 'Drink more water daily for better hydration',
-    category: 'nutrition',
-    startValue: 1.5,
-    currentValue: 2.2,
-    targetValue: 3,
-    unit: 'liters',
-    deadline: '2025-05-15',
-    createdAt: '2025-04-01',
-  },
-];
+const rowToGoal = (r: any): Goal => ({
+  id: r.id,
+  title: r.title,
+  description: '',
+  category: r.category,
+  startValue: 0,
+  currentValue: Number(r.progress ?? 0),
+  targetValue: Number(r.target ?? 0),
+  unit: r.unit ?? '',
+  deadline: r.deadline ?? '',
+  createdAt: r.created_at,
+});
 
 const Goals = () => {
   const { user } = useAuth();
-  const [goals, setGoals] = useState<Goal[]>(sampleGoals);
-  const [isGoalSettingOpen, setIsGoalSettingOpen] = useState(false);
-  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleOpenGoalSetting = () => {
-    setIsGoalSettingOpen(true);
-    setEditingGoalId(null);
+  const load = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    setGoals((data ?? []).map(rowToGoal));
   };
 
-  const handleCloseGoalSetting = () => {
-    setIsGoalSettingOpen(false);
-    setEditingGoalId(null);
+  useEffect(() => { load(); }, [user?.id]);
+
+  const handleAdd = async (g: GoalFormData) => {
+    if (!user) return;
+    const { error } = await supabase.from('goals').insert({
+      user_id: user.id,
+      category: g.category,
+      title: g.title,
+      target: g.targetValue,
+      unit: g.unit,
+      deadline: g.deadline || null,
+      progress: g.currentValue,
+    });
+    if (error) { toast.error('Could not save goal'); return; }
+    setIsOpen(false);
+    await load();
   };
 
-  const handleAddGoal = (newGoal: GoalFormData) => {
-    const goalToAdd = {
-      ...newGoal,
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-    };
-    setGoals([goalToAdd, ...goals]);
-    setIsGoalSettingOpen(false);
+  const handleUpdate = async (g: Goal) => {
+    const { error } = await supabase.from('goals').update({
+      category: g.category,
+      title: g.title,
+      target: g.targetValue,
+      unit: g.unit,
+      deadline: g.deadline || null,
+      progress: g.currentValue,
+    }).eq('id', g.id);
+    if (error) { toast.error('Could not update goal'); return; }
+    setIsOpen(false);
+    setEditingId(null);
+    await load();
   };
 
-  const handleEditGoal = (goalId: string) => {
-    setEditingGoalId(goalId);
-    setIsGoalSettingOpen(true);
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('goals').delete().eq('id', id);
+    if (error) { toast.error('Could not delete goal'); return; }
+    setGoals((prev) => prev.filter((g) => g.id !== id));
   };
 
-  const handleUpdateGoal = (updatedGoal: Goal) => {
-    const updatedGoals = goals.map(goal =>
-      goal.id === updatedGoal.id ? updatedGoal : goal
-    );
-    setGoals(updatedGoals);
-    setIsGoalSettingOpen(false);
-    setEditingGoalId(null);
-  };
-
-  const handleDeleteGoal = (goalId: string) => {
-    const updatedGoals = goals.filter(goal => goal.id !== goalId);
-    setGoals(updatedGoals);
-  };
-
-  const editingGoal = editingGoalId ? goals.find(goal => goal.id === editingGoalId) : null;
+  const editingGoal = editingId ? goals.find((g) => g.id === editingId) ?? null : null;
 
   return (
     <div className="container mx-auto py-12">
@@ -114,14 +82,14 @@ const Goals = () => {
           <Dumbbell className="mr-2 h-6 w-6 text-proglo-purple" />
           <h1 className="text-3xl font-bold proglo-gradient-text">Your Goals</h1>
         </div>
-        <Button onClick={handleOpenGoalSetting} className="bg-proglo-purple hover:bg-proglo-dark-purple">
+        <Button onClick={() => { setEditingId(null); setIsOpen(true); }} className="bg-proglo-purple hover:bg-proglo-dark-purple">
           <Plus className="mr-2 h-4 w-4" />
           Add New Goal
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {goals.map(goal => (
+        {goals.map((goal) => (
           <Card key={goal.id} className="fitness-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium leading-none flex items-center">
@@ -129,37 +97,38 @@ const Goals = () => {
                 <span className="ml-2 workout-tag">{goal.category}</span>
               </CardTitle>
               <div className="flex space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => handleEditGoal(goal.id)}>
+                <Button variant="ghost" size="icon" onClick={() => { setEditingId(goal.id); setIsOpen(true); }}>
                   <Edit2 className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDeleteGoal(goal.id)}>
+                <Button variant="ghost" size="icon" onClick={() => handleDelete(goal.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-500">{goal.description}</p>
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
                   <span>{goal.currentValue} {goal.unit}</span>
                   <span>{goal.targetValue} {goal.unit}</span>
                 </div>
-                <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2 rounded-full" />
+                <Progress value={(goal.currentValue / Math.max(goal.targetValue, 1)) * 100} className="h-2 rounded-full" />
               </div>
               <div className="mt-4 flex justify-between items-center">
-                <span className="text-xs text-gray-500">Deadline: {goal.deadline}</span>
-                <span className="text-xs text-gray-500">Created: {goal.createdAt.substring(0, 10)}</span>
+                <span className="text-xs text-gray-500">Deadline: {goal.deadline || '—'}</span>
               </div>
             </CardContent>
           </Card>
         ))}
+        {goals.length === 0 && (
+          <p className="text-muted-foreground col-span-full text-center py-12">No goals yet. Add your first one!</p>
+        )}
       </div>
 
       <GoalSetting
-        open={isGoalSettingOpen}
-        onClose={handleCloseGoalSetting}
-        onAdd={handleAddGoal}
-        onUpdate={handleUpdateGoal}
+        open={isOpen}
+        onClose={() => { setIsOpen(false); setEditingId(null); }}
+        onAdd={handleAdd}
+        onUpdate={handleUpdate}
         goal={editingGoal}
       />
     </div>

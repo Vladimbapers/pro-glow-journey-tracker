@@ -1,87 +1,71 @@
-
-import { useState } from 'react';
-import { Apple, Droplet, Filter, Utensils, Coffee, FileBarChart } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Apple, Filter, Utensils, Coffee, FileBarChart } from 'lucide-react';
 import NutritionTracker, { NutritionEntry } from '@/components/tracking/NutritionTracker';
-import HydrationTracker, { HydrationEntry } from '@/components/tracking/HydrationTracker';
+import HydrationTracker from '@/components/tracking/HydrationTracker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { v4 as uuidv4 } from '@/lib/utils'; // Simulating UUID
 import { AuthUser } from '@/types/auth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-// Mock nutrition entries
-const mockNutritionEntries: NutritionEntry[] = [
-  {
-    id: '1',
-    food: 'Greek yogurt with berries',
-    category: 'dairy',
-    portion: 'medium',
-    mealTime: 'breakfast',
-    date: '2025-04-11',
-  },
-  {
-    id: '2',
-    food: 'Chicken salad',
-    category: 'proteins',
-    portion: 'large',
-    mealTime: 'lunch',
-    date: '2025-04-11',
-  },
-  {
-    id: '3',
-    food: 'Apple',
-    category: 'fruits',
-    portion: 'medium',
-    mealTime: 'snack',
-    date: '2025-04-10',
-  },
-  {
-    id: '4',
-    food: 'Salmon with vegetables',
-    category: 'proteins',
-    portion: 'medium',
-    mealTime: 'dinner',
-    date: '2025-04-10',
-  },
-];
-
-type NutritionProps = {
-  user: AuthUser | null;
-};
+type NutritionProps = { user: AuthUser | null };
 
 const Nutrition = ({ user }: NutritionProps) => {
-  const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>(mockNutritionEntries);
-  const [hydrationGoal] = useState(2000); // 2000ml (2L) daily goal
-  const [currentHydration, setCurrentHydration] = useState(1500); // Current intake in ml
-  
-  const handleAddNutritionEntry = (entryData: Omit<NutritionEntry, 'id'>) => {
-    const newEntry = {
-      ...entryData,
-      id: uuidv4(),
-    };
-    
-    setNutritionEntries([newEntry, ...nutritionEntries]);
+  const [entries, setEntries] = useState<NutritionEntry[]>([]);
+  const [hydrationGoal] = useState(2000);
+  const [currentHydration, setCurrentHydration] = useState(0);
+
+  const load = async () => {
+    if (!user) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [{ data: nutri }, { data: hydro }] = await Promise.all([
+      supabase.from('nutrition_entries').select('*').eq('user_id', user.id).order('recorded_at', { ascending: false }),
+      supabase.from('hydration_entries').select('amount_ml, recorded_at').eq('user_id', user.id).gte('recorded_at', today),
+    ]);
+
+    setEntries(
+      (nutri ?? []).map((n: any) => ({
+        id: n.id,
+        food: n.food_name,
+        category: 'other',
+        portion: 'medium',
+        mealTime: n.meal,
+        date: n.recorded_at?.slice(0, 10) ?? '',
+      }))
+    );
+    setCurrentHydration((hydro ?? []).reduce((sum: number, h: any) => sum + (h.amount_ml ?? 0), 0));
   };
-  
-  const handleAddWater = (amount: number) => {
-    setCurrentHydration(prev => Math.min(prev + amount, hydrationGoal * 1.5)); // Cap at 150% of goal
+
+  useEffect(() => { load(); }, [user?.id]);
+
+  const handleAddNutritionEntry = async (data: Omit<NutritionEntry, 'id'>) => {
+    if (!user) return;
+    const { error } = await supabase.from('nutrition_entries').insert({
+      user_id: user.id,
+      meal: data.mealTime,
+      food_name: data.food,
+      recorded_at: data.date,
+    });
+    if (error) { toast.error('Could not save meal'); return; }
+    await load();
   };
-  
-  // Function to get meal distribution
-  const getMealDistribution = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayEntries = nutritionEntries.filter(entry => entry.date === today);
-    
-    const distribution = {
-      breakfast: todayEntries.filter(entry => entry.mealTime === 'breakfast').length,
-      lunch: todayEntries.filter(entry => entry.mealTime === 'lunch').length,
-      dinner: todayEntries.filter(entry => entry.mealTime === 'dinner').length,
-      snack: todayEntries.filter(entry => entry.mealTime === 'snack').length,
-    };
-    
-    return distribution;
+
+  const handleAddWater = async (amount: number) => {
+    if (!user) return;
+    const { error } = await supabase.from('hydration_entries').insert({ user_id: user.id, amount_ml: amount });
+    if (error) { toast.error('Could not log water'); return; }
+    setCurrentHydration((prev) => prev + amount);
   };
-  
-  const mealDistribution = getMealDistribution();
-  
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayEntries = entries.filter((e) => e.date === today);
+  const mealDistribution = {
+    breakfast: todayEntries.filter((e) => e.mealTime === 'breakfast').length,
+    lunch: todayEntries.filter((e) => e.mealTime === 'lunch').length,
+    dinner: todayEntries.filter((e) => e.mealTime === 'dinner').length,
+    snack: todayEntries.filter((e) => e.mealTime === 'snack').length,
+  };
+
   return (
     <div className="space-y-8">
       <div className="proglo-section-header">
@@ -91,21 +75,17 @@ const Nutrition = ({ user }: NutritionProps) => {
         </h1>
         <p className="text-gray-600 mt-1">Track your meals and water intake</p>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 animate-fade-in">
-          <NutritionTracker entries={nutritionEntries} onAddEntry={handleAddNutritionEntry} />
+          <NutritionTracker entries={entries} onAddEntry={handleAddNutritionEntry} />
         </div>
-        
+
         <div className="lg:col-span-1 space-y-6">
           <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            <HydrationTracker 
-              dailyGoal={hydrationGoal}
-              currentIntake={currentHydration}
-              onAddWater={handleAddWater}
-            />
+            <HydrationTracker dailyGoal={hydrationGoal} currentIntake={currentHydration} onAddWater={handleAddWater} />
           </div>
-          
+
           <Card className="proglo-card animate-fade-in" style={{ animationDelay: "0.3s" }}>
             <CardHeader className="proglo-card-header">
               <CardTitle className="text-lg font-semibold flex items-center">
@@ -129,15 +109,14 @@ const Nutrition = ({ user }: NutritionProps) => {
                   </div>
                 ))}
               </div>
-              
+
               <div className="mt-6 p-3 bg-blue-50 rounded-md border border-blue-100">
                 <h4 className="text-sm font-medium text-blue-800 flex items-center">
                   <Filter size={16} className="mr-1" />
                   Nutrition Tips
                 </h4>
                 <p className="text-xs text-gray-600 mt-1">
-                  Try to include protein with every meal and aim for at least 5 servings of fruits and vegetables daily. 
-                  Stay hydrated by drinking water throughout the day.
+                  Try to include protein with every meal and aim for at least 5 servings of fruits and vegetables daily.
                 </p>
               </div>
             </CardContent>
